@@ -1,231 +1,196 @@
-# Rafiq — AI-Powered Clinical Companion 🩺
+# رفيق (Rafiq) — AI-Powered Clinical & IoT Companion 🩺
 
-> **"Your intelligent companion, always by your side."**
+> **"رفيقك الذكي، دائمًا بجانبك ورعايتك."**
 
-Rafiq (Arabic: رفيق, meaning *companion*) is a smart healthcare backend that acts as a **personal clinical assistant** for patients living with chronic diseases such as Diabetes, Hypertension, and Endocrine disorders. Rather than replacing doctors, Rafiq bridges the gap between clinical visits — offering real-time guidance, automated medication management, and proactive health monitoring around the clock.
+**رفيق (Rafiq)** هو نظام برمجيات متكامل يمثل **مساعدًا سريريًا شخصيًا ذكيًا** للمرضى الذين يعانون من أمراض مزمنة (مثل السكري، ضغط الدم، واضطرابات الغدد الصماء). لا يهدف النظام إلى استبدال الطبيب، بل يملأ الفجوة الكبيرة بين الزيارات السريرية من خلال تقديم إرشادات طبية فورية، وإدارة ذكية ومؤتمتة للأدوية، ومراقبة صحية استباقية على مدار الساعة عبر دمج الذكاء الاصطناعي مع **علبة الدواء الذكية (IoT Smart Pillbox)**.
 
----
-
-## 🌟 The Problem Rafiq Solves
-
-Patients with chronic conditions face a silent daily struggle:
-
-- **Between appointments**, they have no one to ask when symptoms arise.
-- **Medication schedules** are complex, easy to forget, and hard to optimize.
-- **Paper prescriptions** get lost or misread.
-- **Missed doses** and drug interactions go undetected until they cause harm.
-- **Doctors and families** lack real-time visibility into a patient's health trends.
-
-Rafiq addresses all of these gaps in a single, cohesive AI-driven system.
+تم تصميم هذا المستند لشرح فكرة النظام، وهندسته البرمجية، وآلية عمل علبة الدواء الذكية، وتفاصيل النشر في بيئة الإنتاج (Production)، ليكون مرجعاً أساسياً للفريق لكتابة التوثيق التفصيلي (Documentation).
 
 ---
 
-## 🚀 Core Features
+## 📌 الفكرة العامة ورؤية النظام (The Core Concept)
 
-| Feature | Description |
-|---|---|
-| 🧠 **Multi-Agent Clinical Brain** | Routes patient queries to specialist AI agents (Diabetes, BP, Endocrine) and synthesizes a unified, coherent response. |
-| 💊 **Intelligent Medication Scheduling** | Generates personalized, conflict-free medication schedules based on the patient's wake/sleep times and medication types. |
-| 📸 **OCR Prescription Scanning** | Uses Gemini Vision to extract medication names, doses, and frequencies from prescription photos. |
-| ⚠️ **Drug-Drug Interaction Check** | Automatically detects potentially dangerous interactions between a patient's current medications. |
-| 📋 **Automated Health Reporting** | Generates structured weekly clinical summaries for sharing with doctors and family members. |
-| ⏰ **Background Monitoring** | A persistent scheduler that detects missed doses and keeps all cloud services alive. |
-| 🔐 **Secure Authentication** | JWT-based auth integrated with Supabase for secure, stateless sessions. |
+يعاني مرضى الأمراض المزمنة من تحديات يومية مستمرة:
+1. **صعوبة الالتزام بمواعيد الأدوية الدقيقة**، مما يؤدي لجرعات فائتة أو تداخلات دوائية خطيرة.
+2. **غياب المتابعة المستمرة بين المريض وعائلته**، فلا يعلم الأهل إن كان المريض قد التزم بجرعته أم لا.
+3. **صعوبة تفسير الأعراض الفورية**؛ حيث يحتاج المريض لمعرفة ما إذا كان العَرَض طارئاً أم طبيعياً دون الانتظار لزيارة الطبيب القادمة.
 
----
-
-## 🧠 Architecture: Multi-Agent Orchestration
-
-Rafiq's intelligence is built on an **Orchestrate → Specialize → Synthesize** pattern:
-
-```
-Patient Message
-      │
-      ▼
-┌─────────────────────┐
-│   Orchestrator      │  ← Classifies intent, retrieves medical history
-└─────────────────────┘
-      │
-      ├─────────────────────┬──────────────────────┐
-      ▼                     ▼                      ▼
-┌──────────────┐   ┌──────────────────┐   ┌─────────────────┐
-│ Diabetes     │   │  Blood Pressure  │   │  Glands/Endo.   │
-│ Agent        │   │  Agent           │   │  Agent          │
-└──────────────┘   └──────────────────┘   └─────────────────┘
-      │                     │                      │
-      └─────────────────────┴──────────────────────┘
-                            │
-                            ▼
-                  ┌──────────────────┐
-                  │   Synthesizer    │  ← Merges responses, resolves conflicts
-                  └──────────────────┘
-                            │
-                            ▼
-                    Unified Response
-```
-
-### 1. 🎯 Orchestrator
-The single entry point for all patient messages. It:
-- Classifies medical **intent** from natural language (e.g., "My sugar is 280 and I feel dizzy")
-- Detects **multiple intents** in a single message
-- Executes relevant specialist agents **in parallel** for fast responses
-- Injects the patient's **full medical context** (diseases, vitals, medications)
-
-### 2. 🩺 Specialist Clinical Agents
-
-| Agent | Domain |
-|---|---|
-| **Diabetes Agent** | Blood glucose monitoring, hypo/hyperglycemia guidance |
-| **Blood Pressure Agent** | Systolic/diastolic trend analysis, hypertension management |
-| **Glands (Endocrine) Agent** | Thyroid function, hormonal balance advice |
-| **Pharmacy Agent** | Prescription OCR, interaction checks, schedule generation |
-
-### 3. 🔗 Synthesizer
-When multiple agents respond, the Synthesizer merges their outputs into:
-- A **coherent, non-contradictory** clinical response
-- A **consistent, empathetic** tone
-- A single message — not a list of disjointed agent outputs
+يحل **رفيق** هذه المشاكل عبر منظومة مترابطة:
+* **العقل السريري (Clinical AI Brain):** نظام معتمد على وكلاء ذكاء اصطناعي متعددين (Multi-Agent System) يستقبل استفسارات المريض ويحللها بناءً على ملفه الطبي الفعلي.
+* **علبة الدواء الذكية (IoT Smart Pillbox):** جهاز ملموس يعتمد على متحكم ESP32، يرتبط بالخادم السحابي مباشرة لينبه المريض للجرعة ويسجل أخذ الدواء في قاعدة البيانات بمجرد ضغط زر على العلبة.
+* **نظام التنبيهات التلقائي (Background Scheduler):** يعمل في الخلفية لمراقبة التزام المريض، وإرسال تنبيهات بريدية فورية لعائلته في حال تفويت الجرعة لتدارك الموقف.
 
 ---
 
-## 📡 API Endpoints
+## 🧠 الهيكل الإنشائي للنظام (System Architecture)
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/v1/auth/signup` | Register a new patient account |
-| `POST` | `/api/v1/auth/login` | Authenticate and receive a JWT |
-| `GET` | `/api/v1/patients/me` | Retrieve current patient's medical profile |
-| `POST` | `/api/v1/patients/` | Create a new patient profile |
-| `PATCH` | `/api/v1/patients/` | Update an existing patient profile |
-| `POST` | `/api/v1/chat/` | Send a message to the clinical AI brain |
-| `POST` | `/api/v1/pharmacy/scan` | Scan a prescription image via OCR |
-| `GET` | `/api/v1/pharmacy/medications` | List all of a patient's medications |
-| `POST` | `/api/v1/pharmacy/medications` | Add a new medication |
-| `DELETE` | `/api/v1/pharmacy/medications/{id}` | Remove a medication |
-| `POST` | `/api/v1/pharmacy/schedule` | Generate an AI-optimized medication schedule |
-| `POST` | `/api/v1/pharmacy/interactions` | Check for drug-drug interactions |
-| `GET` | `/api/v1/reports/weekly` | Generate a weekly health summary report |
-| `GET` | `/api/v1/settings/` | Retrieve user notification/app settings |
-| `PATCH` | `/api/v1/settings/` | Update user settings |
+تتكون البنية التحتية لنظام رفيق من ثلاثة مكونات رئيسية تعمل بانسجام تام:
+
+```
+                  ┌─────────────────────────────────────────┐
+                  │          تطبيق الهاتف (Mobile App)      │
+                  └────────────────────┬────────────────────┘
+                                       │ (REST API & Auth)
+                                       ▼
+                  ┌─────────────────────────────────────────┐
+                  │       خادم الخلفية (FastAPI Server)     │
+                  └──────────┬───────────┬───────────┬──────┘
+                             │           │           │
+            ┌────────────────┘           │           └────────────────┐
+            ▼ (Vector Queries)           ▼ (Auth & DB)                ▼ (IoT Sync)
+┌───────────────────────┐    ┌───────────────────────┐    ┌───────────────────────┐
+│     Qdrant DB         │    │      Supabase         │    │  علبة الدواء الذكية   │
+│ (الذاكرة السريرية)   │    │ (البيانات والمستخدمين)│    │   (ESP32 Pillbox)     │
+└───────────────────────┘    └───────────────────────┘    └───────────────────────┘
+```
+
+### 1. العقل السريري المتعدد الوكلاء (Multi-Agent Clinical Brain)
+عندما يرسل المريض رسالة نصية (مثل: "أشعر بدوار خفيف وقست السكر فكان 250")، يمر الطلب بالمراحل التالية:
+1. **الموجه والمصنف (Orchestrator):** يحلل نية المريض (Intent Classification)، ويسترجع ملفه الطبي من قاعدة البيانات، ويحدد التخصصات المطلوبة.
+2. **الوكلاء المختصون (Specialist Agents):** يتم تشغيل الوكلاء بالتوازي حسب الحاجة:
+   * **وكيل السكري (Diabetes Agent):** يحلل قراءات الجلوكوز ويقدم نصائح مخصصة.
+   * **وكيل ضغط الدم (Blood Pressure Agent):** يتابع قراءات الضغط الانقباضي والانبساطي.
+   * **وكيل الغدد (Endocrine Agent):** يتابع الهرمونات ووظائف الغدة الدرقية.
+   * **وكيل الصيدلة (Pharmacy Agent):** مسؤول عن جدولة الأدوية وفحص التفاعلات وتدقيق الوصفات عبر صور الـ OCR.
+3. **الملخص (Synthesizer):** يجمع ردود الوكلاء المختلفين ويوحدها في رد واحد متسق، ودود، وخالٍ من التعارض، ليُرسل للمريض.
 
 ---
 
-## 🛠️ Tech Stack
+## 📡 علبة الدواء الذكية والربط البرمجي (IoT Pillbox Integration)
 
-| Layer | Technology |
-|---|---|
-| **Backend Framework** | FastAPI (fully async) |
-| **AI Engine** | Google Gemini 2.5 Flash |
-| **Database & Auth** | Supabase (PostgreSQL + JWT) |
-| **Vector Database** | Qdrant (clinical context & semantic memory) |
-| **Background Scheduler** | APScheduler |
-| **Deployment** | Railway (via Procfile + Uvicorn) |
-| **Language** | Python 3.10+ |
+تمثل علبة الدواء الذكية (المبنية على **ESP32**) الجسر الفيزيائي الذي يضمن التزام المريض. صُممت نقاط الاتصال (API Endpoints) لتكون خفيفة ومباشرة لتناسب قدرات المتحكمات الدقيقة.
+
+### 🔄 دورة حياة التفاعل بين العلبة والخادم (IoT Flow)
+
+```mermaid
+sequenceDiagram
+    participant ESP32 as علبة الدواء (ESP32)
+    participant API as خادم رفيق (FastAPI)
+    participant DB as قاعدة البيانات (Supabase)
+    participant Email as نظام التنبيهات (Scheduler)
+    participant Family as عائلة المريض (Email)
+
+    Note over ESP32, API: استعلام دوري عن الحالة (Polling)
+    loop كل 15-30 ثانية
+        ESP32->>API: GET /pharmacy/esp32/status/{patient_id}
+        API->>DB: استعلام عن أدوية اليوم والسجلات
+        DB-->>API: القائمة والسجلات
+        API-->>ESP32: { has_alarm: true/false, next_dose_name, scheduled_time }
+    end
+
+    Note over ESP32: عند حلول وقت الدواء (has_alarm = true)
+    ESP32->>ESP32: تشغيل الجرس (Buzzer) وإضاءة الـ LED الخاص بالجرعة
+    
+    alt المريض يأخذ الدواء ويضغط الزر
+        ESP32->>API: POST /pharmacy/esp32/log-dose (بيانات الجرعة)
+        API->>DB: إدراج سجل جديد بحالة "taken" أو "late"
+        API-->>ESP32: تم التسجيل بنجاح (إطفاء التنبيه)
+    else المريض يتجاهل الجرعة (مرور ساعة كفترة سماح)
+        Note over Email, DB: المجدول التلقائي يفحص السجلات في الخلفية
+        Email->>DB: فحص الجرعات غير المأخوذة
+        Email->>DB: تحديث الحالة إلى "missed"
+        Email->>Family: إرسال تنبيه بالبريد الإلكتروني (جرعة فائتة لطرف ثالث)
+    end
+```
+
+### 🔌 نقاط الاتصال المخصصة للـ IoT (Endpoints Details)
+
+#### 1. جلب حالة الإنذار والجرعة القادمة
+* **الرابط:** `GET /api/v1/pharmacy/esp32/status/{patient_id}`
+* **الهدف:** يتيح للمتحكم (ESP32) معرفة ما إذا كان هناك منبه نشط يجب تشغيله حالياً (لأن وقته قد حان ولم يُسجل كمأخوذ بعد)، أو معرفة تفاصيل الجرعة القادمة لعرضها على شاشة العلبة.
+* **نموذج الاستجابة (Response):**
+  ```json
+  {
+    "has_alarm": true,
+    "next_dose_name": "Metformin",
+    "next_dose_time": "08:00",
+    "medication_id": "uuid-here",
+    "scheduled_time": "08:00:00"
+  }
+  ```
+
+#### 2. تسجيل أخذ الجرعة مباشرة من العلبة
+* **الرابط:** `POST /api/v1/pharmacy/esp32/log-dose`
+* **الهدف:** يتيح للعلبة إرسال إشارة تأكيد فورية عند ضغط المريض على الزر الفيزيائي.
+* **ملاحظة أمنية وتصميمية:** لا يتطلب هذا المسار رمز JWT معقداً لتسهيل عملية التطوير على متحكم الـ ESP32؛ حيث يتم التحقق من خلال معرف المريض ومعرف الدواء مباشرة.
+* **الحساب التلقائي للحالة:** يقوم النظام بمقارنة وقت الاستدعاء الفعلي بالوقت المجدول؛ فإذا كان ضمن ساعة (60 دقيقة) قبل أو بعد الوقت المحدد تُسجل الحالة كـ `taken`، وإذا تجاوزها تُسجل كـ `late`.
+* **نموذج الطلب (Request Payload):**
+  ```json
+  {
+    "patient_id": "uuid-of-patient",
+    "medication_id": "uuid-of-medication",
+    "scheduled_time": "08:00:00"
+  }
+  ```
 
 ---
 
-## ⚙️ Setup & Installation
+## 🛠️ تفاصيل بيئة الإنتاج والتشغيل (Production Environment)
 
-### Prerequisites
-- Python 3.10 or higher
-- A [Supabase](https://supabase.com/) project with auth enabled
-- A [Qdrant](https://qdrant.tech/) cluster (cloud or local)
-- A [Google AI Studio](https://aistudio.google.com/) API key (Gemini)
+يتم تشغيل تطبيق رفيق في بيئة الإنتاج بالاعتماد على البنية التحتية التالية لضمان الاستقرار والسرعة:
 
-### 1. Clone & Install
-
-```bash
-git clone https://github.com/your-username/rafiq_backend.git
-cd rafiq_backend
-
-# Create a virtual environment
-python -m venv venv
-
-# Activate (Windows)
-venv\Scripts\activate
-# Activate (Linux / macOS)
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### 2. Configure Environment Variables
-
-Copy the example file and fill in your credentials:
-
-```bash
-cp .env.example .env
-```
-
-```env
-# .env
-GEMINI_API_KEY=your_google_gemini_api_key
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your_supabase_service_role_key
-QDRANT_URL=https://your-cluster.qdrant.io
-QDRANT_API_KEY=your_qdrant_api_key
-```
-
-### 3. Run the Development Server
-
-```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-The API will be available at `http://localhost:8000`.
-Interactive docs (Swagger UI) at `http://localhost:8000/docs`.
-
----
-
-## 🚀 Deployment (Railway)
-
-The project includes a `Procfile` for one-click deployment on [Railway](https://railway.app/):
-
-```
+### 1. المنصة السحابية (Railway Deployment)
+تتم استضافة خادم FastAPI على منصة **Railway**، حيث يتم البناء تلقائياً من مستودع GitHub بناءً على ملف `Procfile` الذي يحدد نقطة الانطلاق وأمر التشغيل:
+```procfile
 web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ```
+*يتم توجيه المنفذ (Port) تلقائياً عبر متغيرات البيئة الخاصة بمنصة الاستضافة.*
 
-Simply connect your GitHub repository to a new Railway project, add your environment variables in the Railway dashboard, and deploy.
+### 2. البنية التحتية للبيانات والخدمات السحابية (Cloud Infrastructure)
+* **قاعدة البيانات (Supabase):** تستخدم لتخزين بيانات المرضى، ملفاتهم الطبية، قراءات المؤشرات الحيوية، والأدوية وجدولتها اليومية وسجلاتها التاريخية. كما تُستخدم نظام المصادقة (Supabase Auth) للتحقق من هوية المرضى عبر الـ JWT.
+* **الذاكرة الدلالية (Qdrant Cloud):** قاعدة بيانات متجهة (Vector Database) تُخزن فيها المتجهات السريرية وتاريخ الحوارات لضمان توفير سياق سريري دقيق ومستمر للذكاء الاصطناعي (Semantic Memory).
+* **محرك الذكاء الاصطناعي:** يتم الاعتماد على نموذج **Gemini 2.5 Flash** لتقديم إجابات سريعة وذكية وبتكلفة منخفضة، بالإضافة لمعالجة الصور لاستخراج بيانات الوصفات الطبية (OCR).
+
+### ⏰ المهام المجدولة في الخلفية (Background Workers)
+يعتمد التطبيق على مكتبة `APScheduler` مدمجة مع دورة حياة التطبيق (`FastAPI Lifespan`)، وتقوم بمهام حيوية في الخلفية:
+1. **فحص الالتزام بالأدوية (Missed Doses Checker):** يعمل **كل 15 دقيقة** بشكل تلقائي ومستمر. يقوم بالمرور على جميع المرضى ومقارنة أوقات جرعاتهم الحالية بسجلات أخذ الدواء لليوم؛ وإذا اكتشف تفويت الجرعة وتجاوز فترة السماح (60 دقيقة)، يقوم بـ:
+   * تسجيل الجرعة في قاعدة البيانات بالحالة `missed`.
+   * إرسال بريد إلكتروني فوري ومصمم بشكل مميز للأهل أو جهة الاتصال الطارئة للمريض لتنبيههم بضرورة الاطمئنان عليه.
+2. **إبقاء الخدمات نشطة (Qdrant Keep-Alive):** تعمل مهمة في الخلفية **كل 24 ساعة** لعمل Ping لقاعدة البيانات المتجهة Qdrant لضمان عدم دخول العنقود (Cluster) في وضع الخمول (Sleep Mode) في النسخ المجانية.
 
 ---
 
-## 📁 Project Structure
+## 📁 الهيكل التنظيمي للملفات (Project Structure)
 
 ```
 rafiq_backend/
 ├── app/
 │   ├── agents/
-│   │   ├── clinical/           # Specialist AI agents (Diabetes, BP, Glands)
-│   │   ├── functional/         # Pharmacy & utility agents
-│   │   ├── tools/              # Shared agent tools
-│   │   └── orchestrator.py     # Main multi-agent router & synthesizer
+│   │   ├── clinical/           # وكلاء الذكاء الاصطناعي السريري (السكري، الضغط، الغدد)
+│   │   ├── functional/         # وكيل الصيدلة (تحليل الأدوية، التفاعلات، الجدولة)
+│   │   ├── tools/              # الأدوات المشتركة للوكلاء
+│   │   └── orchestrator.py     # العقل المدبر والموجه للمحادثة والملخص
 │   ├── api/
-│   │   └── routes/             # FastAPI route handlers
-│   │       ├── auth.py
-│   │       ├── chat.py
-│   │       ├── patient.py
-│   │       ├── pharmacy.py
-│   │       ├── reports.py
-│   │       └── settings.py
-│   ├── core/                   # Config, security, background scheduler
-│   ├── db/                     # Supabase & Qdrant client setup
-│   ├── schemas/                # Pydantic request/response models
-│   ├── services/               # Business logic layer
-│   └── main.py                 # FastAPI app entry point
-├── .env.example
-├── Procfile
-└── requirements.txt
+│   │   ├── routes/             # مسارات الـ API (المصادقة، المحادثة، الصيدلة والـ IoT، التقارير)
+│   │   └── router.py           # المجمع العام للمسارات
+│   ├── core/                   # الإعدادات العامة، الحماية، وإعداد المجدول في الخلفية
+│   ├── db/                     # الاتصال بقواعد البيانات (Supabase & Qdrant)
+│   ├── schemas/                # نماذج التحقق وتدقيق البيانات المدخلة والمسترجعة (Pydantic)
+│   ├── services/               # منطق الأعمال (البريد الإلكتروني، إرسال التنبيهات، مهام الخلفية)
+│   └── main.py                 # نقطة الدخول الرئيسية للتطبيق وإدارة دورة الحياة (Lifespan)
+├── .env.example                # نموذج لمتغيرات البيئة المطلوبة
+├── Procfile                    # ملف تعريف أمر التشغيل للإنتاج (Railway)
+└── requirements.txt            # المكتبات والاعتماديات المطلوبة للمشروع
 ```
 
 ---
 
-## 🔒 Security Notes
+## ⚙️ المتغيرات البيئية المطلوبة للإنتاج (Required Env Variables)
 
-- All endpoints (except `/auth/signup` and `/auth/login`) require a valid **JWT Bearer token** in the `Authorization` header.
-- Tokens are issued and verified by Supabase Auth.
-- Sensitive keys are never committed — use `.env` locally and Railway's secret manager in production.
+لضمان عمل النظام بشكل كامل في بيئة الإنتاج، يجب ضبط المتغيرات التالية في لوحة تحكم الاستضافة:
+
+| المتغير | الوصف | مثال |
+|---|---|---|
+| `GEMINI_API_KEY` | مفتاح الاتصال بنموذج ذكاء اصطناعي من Google AI Studio | `AIzaSy...` |
+| `SUPABASE_URL` | رابط مشروع Supabase الخاص بك | `https://xxxx.supabase.co` |
+| `SUPABASE_KEY` | مفتاح الخدمة لـ Supabase (Service Role Key) للوصول الإداري | `eyJhbGci...` |
+| `QDRANT_URL` | رابط الوصول لعنقود Qdrant | `https://xxxx.gcp.qdrant.io` |
+| `QDRANT_API_KEY` | مفتاح الوصول لقاعدة بيانات Qdrant | `xxxxxx...` |
+| `SMTP_HOST` | خادم إرسال البريد الإلكتروني للتنبيهات | `smtp.gmail.com` |
+| `SMTP_PORT` | منفذ خادم البريد | `587` |
+| `SMTP_USERNAME` | بريد إرسال التنبيهات | `alerts@rafiq.com` |
+| `SMTP_PASSWORD` | كلمة مرور التطبيق (App Password) للبريد | `xxxx xxxx xxxx xxxx` |
 
 ---
 
-*Rafiq — Built to be the clinical companion every chronic patient deserves.*
+*تم إعداد هذا الدليل ليوضح الترابط بين الجانب السريري للذكاء الاصطناعي وجانب الـ IoT المتمثل في علبة الدواء الذكية وكيفية معالجتها في خادم الإنتاج.*

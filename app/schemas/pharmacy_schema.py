@@ -119,3 +119,17 @@ class MedicationLogResponse(BaseModel):
     taken_at: Optional[datetime] = None
     scheduled_time: time
     status: str
+
+# ── ESP32 Integration Schemas ──────────────────────────────────
+
+class ESP32StatusResponse(BaseModel):
+    has_alarm: bool
+    next_dose_name: str
+    next_dose_time: str      # Format: "HH:MM" or "--:--"
+    medication_id: str       # UUID as string, empty if no alarm/next dose
+    scheduled_time: str      # Format: "HH:MM:SS" or ""
+
+class ESP32MedicationLogCreate(BaseModel):
+    patient_id: str
+    medication_id: str
+    scheduled_time: str      # Format: "HH:MM:SS"

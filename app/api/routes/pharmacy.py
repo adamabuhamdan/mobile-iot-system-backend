@@ -10,7 +10,8 @@ from app.schemas.pharmacy_schema import (
     ScheduleSuggestRequest, ScheduleSuggestResponse,
     InteractionCheckRequest, InteractionCheckResponse, InteractionItem,
     NewMedicationForSuggestion, SuggestedMedication,
-    MedicationLogCreate, MedicationLogResponse
+    MedicationLogCreate, MedicationLogResponse,
+    ESP32StatusResponse, ESP32MedicationLogCreate
 )
 from app.schemas.med_schema import MedResponse
 from app.agents.functional.pharmacy_agent import PharmacyAgent
@@ -259,3 +260,171 @@ async def get_today_medication_logs(patient_id: str):
     
 
     return result.data or []
+
+
+# ========== ESP32 Integration Endpoints ==========
+
+@router.get("/esp32/status/{patient_id}", response_model=ESP32StatusResponse)
+async def get_esp32_status(patient_id: str):
+    """
+    جلب حالة الإنذار والجرعة القادمة لعلبة الدواء (ESP32)
+    """
+    supabase = get_supabase()
+    
+    # 1. Fetch medications for the patient
+    meds_result = supabase.table("medications").select("*").eq("patient_id", patient_id).execute()
+    medications = meds_result.data or []
+    
+    # 2. Fetch today's logs for the patient
+    now = datetime.now()
+    today_start = datetime.combine(now.date(), datetime.min.time()).isoformat()
+    logs_result = (
+        supabase.table("medication_logs")
+        .select("*")
+        .eq("patient_id", patient_id)
+        .gte("taken_at", today_start)
+        .execute()
+    )
+    today_logs = logs_result.data or []
+    
+    # Collect all logged combinations today: (medication_id, scheduled_time)
+    logged_combinations = set()
+    for log in today_logs:
+        med_id_str = str(log["medication_id"])
+        sch_time_str = log["scheduled_time"]
+        # Normalize to "HH:MM:SS"
+        if sch_time_str and len(sch_time_str) == 5:
+            sch_time_str += ":00"
+        logged_combinations.add((med_id_str, sch_time_str))
+
+    # We will look for:
+    # A. Active alarms (pending doses whose scheduled time has passed today)
+    # B. Upcoming doses (pending doses in the future today)
+    active_alarms = []
+    upcoming_doses = []
+    
+    current_day = now.strftime("%a").lower()[:3]  # e.g. 'mon', 'tue', etc.
+    
+    for med in medications:
+        med_id = str(med["id"])
+        med_name = med["name"]
+        times = med.get("times") or []
+        weekdays = med.get("weekdays") or []
+        
+        # Check if today is scheduled for this medication
+        # If weekdays list is empty, assume every day. Otherwise, check match.
+        if weekdays and current_day not in weekdays:
+            continue
+            
+        for t_str in times:
+            t_parts = t_str.split(":")
+            if len(t_parts) < 2:
+                continue
+            h = int(t_parts[0])
+            m = int(t_parts[1])
+            s = int(t_parts[2]) if len(t_parts) > 2 else 0
+            
+            t_formatted = f"{h:02d}:{m:02d}:{s:02d}"
+            
+            # If already logged, skip
+            if (med_id, t_formatted) in logged_combinations:
+                continue
+                
+            # Combine to datetime
+            scheduled_time_obj = time(hour=h, minute=m, second=s)
+            scheduled_datetime = datetime.combine(now.date(), scheduled_time_obj)
+            
+            dose_info = {
+                "medication_id": med_id,
+                "name": med_name,
+                "scheduled_datetime": scheduled_datetime,
+                "time_display": f"{h:02d}:{m:02d}",
+                "time_formatted": t_formatted
+            }
+            
+            if scheduled_datetime <= now:
+                active_alarms.append(dose_info)
+            else:
+                upcoming_doses.append(dose_info)
+
+    # 3. Formulate the response
+    if active_alarms:
+        # Sort by scheduled time ascending (earliest first)
+        active_alarms.sort(key=lambda x: x["scheduled_datetime"])
+        alarm_dose = active_alarms[0]
+        return ESP32StatusResponse(
+            has_alarm=True,
+            next_dose_name=alarm_dose["name"],
+            next_dose_time=alarm_dose["time_display"],
+            medication_id=alarm_dose["medication_id"],
+            scheduled_time=alarm_dose["time_formatted"]
+        )
+    elif upcoming_doses:
+        # Sort by scheduled time ascending (closest upcoming first)
+        upcoming_doses.sort(key=lambda x: x["scheduled_datetime"])
+        next_dose = upcoming_doses[0]
+        return ESP32StatusResponse(
+            has_alarm=False,
+            next_dose_name=next_dose["name"],
+            next_dose_time=next_dose["time_display"],
+            medication_id=next_dose["medication_id"],
+            scheduled_time=next_dose["time_formatted"]
+        )
+    else:
+        # No more doses today
+        return ESP32StatusResponse(
+            has_alarm=False,
+            next_dose_name="No more doses",
+            next_dose_time="--:--",
+            medication_id="",
+            scheduled_time=""
+        )
+
+
+@router.post("/esp32/log-dose")
+async def esp32_log_dose(payload: ESP32MedicationLogCreate):
+    """
+    تسجيل جرعة مأخوذة من علبة الدواء مباشرة (ESP32) بدون الحاجة لرمز JWT
+    """
+    now = datetime.now()
+    
+    # Parse the scheduled time string (expecting "HH:MM:SS")
+    try:
+        parts = payload.scheduled_time.split(":")
+        h = int(parts[0])
+        m = int(parts[1])
+        s = int(parts[2]) if len(parts) > 2 else 0
+        scheduled_time_obj = time(hour=h, minute=m, second=s)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid scheduled_time format. Use HH:MM:SS")
+
+    scheduled_datetime = datetime.combine(now.date(), scheduled_time_obj)
+    diff = now - scheduled_datetime
+    buffer_minutes = 60
+    
+    # Status calculation
+    if timedelta(minutes=-buffer_minutes) <= diff <= timedelta(minutes=buffer_minutes):
+        status_val = "taken"
+    elif diff > timedelta(minutes=buffer_minutes):
+        status_val = "late"
+    else:
+        status_val = "taken"
+
+    supabase = get_supabase()
+    data = {
+        "patient_id": payload.patient_id,
+        "medication_id": payload.medication_id,
+        "scheduled_time": payload.scheduled_time,
+        "status": status_val,
+        "taken_at": now.isoformat()
+    }
+    
+    result = supabase.table("medication_logs").insert(data).execute()
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to log medication dose from ESP32")
+        
+    return {
+        "status": "success",
+        "message": f"Dose logged successfully as {status_val}",
+        "log": result.data[0]
+    }
