@@ -40,12 +40,32 @@ async def submit_daily_report(payload: DailyReportCreate):
     advice = await evaluate_daily_report(str(payload.patient_id), data, payload.language)
     data["ai_advice"] = advice
     
-    # 3) Perform upsert using Supabase
-    db_result = (
+    # 3) Check for existing report today and update or insert
+    today_date = datetime.now().date().isoformat()
+    data["report_date"] = today_date
+    
+    existing = (
         supabase.table("daily_reports")
-        .upsert(data, on_conflict="patient_id, report_date")
+        .select("id")
+        .eq("patient_id", data["patient_id"])
+        .eq("report_date", today_date)
         .execute()
     )
+    
+    if existing.data:
+        report_id = existing.data[0]["id"]
+        db_result = (
+            supabase.table("daily_reports")
+            .update(data)
+            .eq("id", report_id)
+            .execute()
+        )
+    else:
+        db_result = (
+            supabase.table("daily_reports")
+            .insert(data)
+            .execute()
+        )
     
     if not db_result.data:
         raise HTTPException(status_code=500, detail="Failed to save daily report.")

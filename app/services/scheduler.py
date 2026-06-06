@@ -3,9 +3,11 @@ Background Scheduler for automatic missed dose detection and email alerts.
 """
 import os
 import asyncio
+# pyrefly: ignore [missing-import]
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.db.supabase_client import get_supabase
 from app.api.routes.pharmacy import check_missed_doses_for_patient
+# pyrefly: ignore [missing-import]
 from qdrant_client import QdrantClient
 
 scheduler = BackgroundScheduler()
