@@ -49,6 +49,24 @@ def ping_qdrant():
     except Exception as e:
         print(f"[SCHEDULER] Error pinging Qdrant: {e}")
 
+import urllib.request
+
+def ping_render():
+    """
+    Ping the Render server itself to prevent it from sleeping.
+    """
+    render_url = os.getenv("RENDER_EXTERNAL_URL")  # Render automatically sets this
+    if not render_url:
+        # Fallback to local testing or custom env var if RENDER_EXTERNAL_URL isn't set
+        render_url = os.getenv("APP_URL", "http://localhost:8000")
+        
+    try:
+        req = urllib.request.Request(render_url)
+        with urllib.request.urlopen(req, timeout=10) as response:
+            print(f"[SCHEDULER] Pinged Render ({render_url}): {response.status}")
+    except Exception as e:
+        print(f"[SCHEDULER] Error pinging Render: {e}")
+
 def start_scheduler():
     """
     Start the background scheduler when the FastAPI app starts.
@@ -69,5 +87,13 @@ def start_scheduler():
         replace_existing=True
     )
     
+    scheduler.add_job(
+        ping_render,
+        'interval',
+        seconds=45,
+        id='render_keep_alive',
+        replace_existing=True
+    )
+    
     scheduler.start()
-    print("[SCHEDULER] Started. Will check missed doses every 15 minutes, and ping Qdrant every 24 hours.")
+    print("[SCHEDULER] Started. Will check missed doses every 15 mins, ping Qdrant every 24 hrs, and ping Render every 45 secs.")
