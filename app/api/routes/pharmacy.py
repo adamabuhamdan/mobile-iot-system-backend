@@ -265,7 +265,7 @@ async def get_today_medication_logs(patient_id: str):
 # ========== ESP32 Integration Endpoints ==========
 
 @router.get("/esp32/status/{patient_id}", response_model=ESP32StatusResponse)
-async def get_esp32_status(patient_id: str):
+async def get_esp32_status(patient_id: str, tz: int = 3):
     """
     جلب حالة الإنذار والجرعة القادمة لعلبة الدواء (ESP32)
     """
@@ -275,14 +275,20 @@ async def get_esp32_status(patient_id: str):
     meds_result = supabase.table("medications").select("*").eq("patient_id", patient_id).execute()
     medications = meds_result.data or []
     
-    # 2. Fetch today's logs for the patient
-    now = datetime.now()
-    today_start = datetime.combine(now.date(), datetime.min.time()).isoformat()
+    # 2. Get current time in patient's timezone and today's start
+    from datetime import timezone as datetime_timezone
+    tz_delta = timedelta(hours=tz)
+    tz_info = datetime_timezone(tz_delta)
+    
+    now_local = datetime.now(datetime_timezone.utc).astimezone(tz_info)
+    today_start_local = datetime.combine(now_local.date(), time.min, tzinfo=tz_info)
+    
+    # Fetch today's logs for the patient
     logs_result = (
         supabase.table("medication_logs")
         .select("*")
         .eq("patient_id", patient_id)
-        .gte("taken_at", today_start)
+        .gte("taken_at", today_start_local.isoformat())
         .execute()
     )
     today_logs = logs_result.data or []
@@ -303,7 +309,10 @@ async def get_esp32_status(patient_id: str):
     active_alarms = []
     upcoming_doses = []
     
-    current_day = now.strftime("%a").lower()[:3]  # e.g. 'mon', 'tue', etc.
+    current_day = now_local.strftime("%a").lower()[:3]  # e.g. 'mon', 'tue', etc.
+    
+    # Make a naive version of now_local for comparing with naive scheduled times
+    now_naive = now_local.replace(tzinfo=None)
     
     for med in medications:
         med_id = str(med["id"])
@@ -330,9 +339,9 @@ async def get_esp32_status(patient_id: str):
             if (med_id, t_formatted) in logged_combinations:
                 continue
                 
-            # Combine to datetime
+            # Combine to datetime using the patient's local date
             scheduled_time_obj = time(hour=h, minute=m, second=s)
-            scheduled_datetime = datetime.combine(now.date(), scheduled_time_obj)
+            scheduled_datetime = datetime.combine(now_local.date(), scheduled_time_obj)
             
             dose_info = {
                 "medication_id": med_id,
@@ -342,7 +351,7 @@ async def get_esp32_status(patient_id: str):
                 "time_formatted": t_formatted
             }
             
-            if scheduled_datetime <= now:
+            if scheduled_datetime <= now_naive:
                 active_alarms.append(dose_info)
             else:
                 upcoming_doses.append(dose_info)
@@ -382,11 +391,16 @@ async def get_esp32_status(patient_id: str):
 
 
 @router.post("/esp32/log-dose")
-async def esp32_log_dose(payload: ESP32MedicationLogCreate):
+async def esp32_log_dose(payload: ESP32MedicationLogCreate, tz: int = 3):
     """
     تسجيل جرعة مأخوذة من علبة الدواء مباشرة (ESP32) بدون الحاجة لرمز JWT
     """
-    now = datetime.now()
+    from datetime import timezone as datetime_timezone
+    tz_delta = timedelta(hours=tz)
+    tz_info = datetime_timezone(tz_delta)
+    
+    # Get current time in patient's timezone
+    now_local = datetime.now(datetime_timezone.utc).astimezone(tz_info)
     
     # Parse the scheduled time string (expecting "HH:MM:SS")
     try:
@@ -398,8 +412,9 @@ async def esp32_log_dose(payload: ESP32MedicationLogCreate):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid scheduled_time format. Use HH:MM:SS")
 
-    scheduled_datetime = datetime.combine(now.date(), scheduled_time_obj)
-    diff = now - scheduled_datetime
+    # Combine using the local date of the patient
+    scheduled_datetime_local = datetime.combine(now_local.date(), scheduled_time_obj, tzinfo=tz_info)
+    diff = now_local - scheduled_datetime_local
     buffer_minutes = 60
     
     # Status calculation
@@ -411,12 +426,16 @@ async def esp32_log_dose(payload: ESP32MedicationLogCreate):
         status_val = "taken"
 
     supabase = get_supabase()
+    
+    # We store taken_at in UTC in the database, which is now_local converted to UTC
+    taken_at_utc = now_local.astimezone(datetime_timezone.utc)
+    
     data = {
         "patient_id": payload.patient_id,
         "medication_id": payload.medication_id,
         "scheduled_time": payload.scheduled_time,
         "status": status_val,
-        "taken_at": now.isoformat()
+        "taken_at": taken_at_utc.isoformat()
     }
     
     result = supabase.table("medication_logs").insert(data).execute()
